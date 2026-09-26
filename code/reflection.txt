@@ -1,6 +1,57 @@
-Write your reflection here.
+Building three Streamlit apps in this assignment changed how I think about
+writing a "program." In one_package.py, the app doesn't run once and stop:
+it reruns from the top on every interaction, and the first rerun happens
+before I've typed anything at all. That's why the guard `if package_data:`
+matters: it stops parse_packaging from being called on an empty string and
+raising a ValueError before there's anything to parse. Once st.text_input
+returned a real value, the rest followed from the return values of the
+provided functions: parse_packaging gives back the list of levels, and
+since each level is a one-item dict, `for name, quantity in level.items():`
+unpacks it cleanly for the st.info lines, with calc_total_units and get_unit
+feeding the final st.success line.
 
-See reflection.md for what makes a good reflection — be specific, use the
-terminology from this assignment (rerun, widget, return value, guard, bytes vs.
-text, decode, session state, initialise once, button-triggered, metric), and make
-it actionable.
+process_file.py made me actually confront a distinction I'd only read about
+before: an uploaded file arrives as bytes, not text. I had to decode it with
+.decode("utf-8") before I could even call .splitlines() on it. I also had to
+remember that a text file usually ends with a newline, so splitting it
+leaves an empty "line" at the end. I strip() each line and skip it if it's
+blank, which is the same guarding idea as Part 1, just applied per line
+instead of once for the whole widget.
+
+process_files.py is where the rerun model actually clicked for me. My first
+instinct was to track files_processed as a plain variable, but that's
+exactly the trap the assignment warns about: a variable set at the top of
+the script gets reset to its initial value on every rerun, so the count
+never gets past one. Keeping files_processed, packages_processed, and
+history in st.session_state, and initialising them only once with
+`if "files_processed" not in st.session_state:`, fixed that. The second
+trap was subtler: the file uploader keeps holding its file across reruns,
+so if I processed "whenever there's a file," the same upload would get
+counted again on the next unrelated interaction. Making the processing
+button-triggered, checking `process_clicked and package_file is not None`,
+meant the work only happens on the one rerun the click caused, and simply
+choosing a file without clicking changes nothing. Watching the two
+st.metric widgets in st.columns(2) update correctly across multiple
+uploads was the moment session state stopped being an abstract rule and
+became something I understood: it's specifically for anything that has to
+survive past the point where the script's own variables get wiped.
+
+Where I still feel shaky: I didn't wrap the parsing in try/except anywhere.
+one_package.py will throw a raw traceback if someone types a string that
+doesn't match the "<number> <name>" pattern, and process_file.py doesn't
+warn about a badly formatted line inside an uploaded file, it just lets
+parse_packaging raise and takes down the whole page. I understand why the
+guard handles the empty-input case, but I haven't practiced catching a
+malformed-input case with try/except ValueError and showing st.error
+instead of a crash. I also had to go back to the README's Reference #4 and
+#6 more than once to get the bytes-to-text order and the
+initialise-once/update-on-click/display-every-run order straight. It
+isn't automatic for me yet; I still have to think it through step by step.
+
+Next steps: I want to go back and add try/except ValueError around the
+parsing calls in all three apps so a bad input shows a friendly st.error
+instead of crashing the page. I also want to try writing a small Streamlit
+app from scratch, without one_package.py or process_file.py open next to
+me, to check whether I've actually internalized the rerun model and the
+guard-then-process pattern, or whether I've just been pattern-matching the
+code that was already here.
